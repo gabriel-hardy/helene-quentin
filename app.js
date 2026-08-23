@@ -89,8 +89,9 @@
   }
 
   // ── Progressive image loading ─────────────────────────
-  // Load images visible in viewport + roughly one full screen below to avoid pop-in while scrolling.
-  const preloadBelow = Math.max(Math.round(window.innerHeight * 1.2), 600);
+  // Load images visible in viewport + roughly one full screen in every direction,
+  // so scrolling up or down feels smooth and empty slots fill quickly.
+  const preloadMargin = Math.max(Math.round(window.innerHeight * 1.2), 800);
   const imageObserver = 'IntersectionObserver' in window
     ? new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -99,7 +100,7 @@
             imageObserver.unobserve(entry.target);
           }
         });
-      }, { rootMargin: `0px 0px ${preloadBelow}px 0px`, threshold: 0 })
+      }, { rootMargin: `${preloadMargin}px 0px ${preloadMargin}px 0px`, threshold: 0 })
     : null;
 
   function mountItemImage(item) {
@@ -110,7 +111,8 @@
     if (!photo) return;
 
     const img = document.createElement('img');
-    img.loading = 'lazy';
+    // We decided to load it now; native lazy would postpone it when off-screen.
+    img.loading = 'eager';
     img.decoding = 'async';
     img.src = photo.src;
     img.alt = photo.alt || '';
