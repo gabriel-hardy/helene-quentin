@@ -88,6 +88,34 @@
     renderGallery(set);
   }
 
+  // ── Progressive image loading ─────────────────────────
+  const imageObserver = 'IntersectionObserver' in window
+    ? new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            mountItemImage(entry.target);
+            imageObserver.unobserve(entry.target);
+          }
+        });
+      }, { rootMargin: '300px 0px 300px 0px', threshold: 0 })
+    : null;
+
+  function mountItemImage(item) {
+    if (item.querySelector('img')) return;
+    const set = item.dataset.set;
+    const i = parseInt(item.dataset.index, 10);
+    const photo = galleries[set] && galleries[set].photos[i];
+    if (!photo) return;
+
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.decoding = 'async';
+    img.src = photo.src;
+    img.alt = photo.alt || '';
+    img.addEventListener('load', () => img.classList.add('is-loaded'));
+    item.insertBefore(img, item.firstChild);
+  }
+
   function renderGallery(set) {
     const g = galleries[set];
     if (g.photos.length === 0) {
@@ -107,13 +135,9 @@
       item.tabIndex = 0;
       item.dataset.index = i;
       item.dataset.set = set;
+      item.dataset.src = photo.src;
       item.setAttribute('aria-label', photo.alt || `Photo ${i + 1}`);
-      const img = document.createElement('img');
-      img.loading = 'lazy';
-      img.decoding = 'async';
-      img.src = photo.src;
-      img.alt = photo.alt || '';
-      img.addEventListener('load', () => img.classList.add('is-loaded'));
+
       const actions = document.createElement('div');
       actions.className = 'photo-actions';
 
@@ -157,7 +181,6 @@
       actions.appendChild(fav);
       actions.appendChild(cart);
       actions.appendChild(download);
-      item.appendChild(img);
       item.appendChild(actions);
       item.addEventListener('click', () => openLightbox(set, i));
       item.addEventListener('keydown', e => {
@@ -166,6 +189,13 @@
           openLightbox(set, i);
         }
       });
+
+      if (imageObserver) {
+        imageObserver.observe(item);
+      } else {
+        mountItemImage(item);
+      }
+
       frag.appendChild(item);
     });
     g.el.appendChild(frag);
