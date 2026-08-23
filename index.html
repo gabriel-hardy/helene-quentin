@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Hélène &amp; Quentin — Galerie</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./styles.css?v=2">
+</head>
+<body>
+
+  <!-- Hero / Couverture -->
+  <header class="hero" id="haut">
+    <div class="hero-media">
+      <img id="hero-img" src="galerie/GH-20260725-2208.jpg" alt="Hélène &amp; Quentin">
+      <div class="hero-overlay"></div>
+    </div>
+    <div class="hero-text">
+      <h1>Hélène &amp; Quentin</h1>
+      <p class="hero-date">25 juillet 2026</p>
+    </div>
+    <button class="hero-scroll" type="button" aria-label="Voir la galerie" onclick="document.getElementById('galerie').scrollIntoView({behavior:'smooth'})">
+      <span></span><span></span>
+    </button>
+  </header>
+
+  <!-- Navigation sticky -->
+  <nav class="site-nav" id="galerie" role="tablist" aria-label="Sections">
+    <div class="nav-credit">Photos par<br>Gabriel Hardy</div>
+    <div class="nav-tabs">
+      <button class="nav-tab is-active" role="tab" data-tab="galerie" aria-selected="true">Galerie</button>
+      <button class="nav-tab" role="tab" data-tab="selection" aria-selected="false">Sélection</button>
+      <button class="nav-tab" role="tab" data-tab="groupes" aria-selected="false">Groupes</button>
+      <button class="nav-tab" role="tab" data-tab="soiree" aria-selected="false">Soirée</button>
+      <span class="nav-divider"></span>
+      <button class="nav-tab" role="tab" data-tab="boutique" aria-selected="false">Boutique</button>
+    </div>
+    <div class="nav-actions">
+      <span class="nav-action" title="Télécharger" id="nav-download">⤓</span>
+      <button class="nav-action" type="button" title="Favoris" id="nav-fav">
+        <span id="nav-fav-icon">♡</span>
+        <span class="fav-count" id="fav-count">0</span>
+      </button>
+      <button class="nav-action" type="button" title="Panier" id="nav-cart">
+        <span>🛒</span>
+        <span class="cart-count" id="cart-count">0</span>
+      </button>
+    </div>
+  </nav>
+
+  <main>
+    <section id="panel-galerie" class="panel is-active" role="tabpanel">
+      <div class="gallery" id="gallery">
+        <p class="gallery-empty" id="gallery-empty" hidden>
+          Aucune photo trouvée. Ajoutez un fichier <code>photos.json</code> à côté de cette page,
+          ou un dossier <code>galerie/</code> contenant les images.
+        </p>
+      </div>
+    </section>
+
+    <section id="panel-selection" class="panel" role="tabpanel" hidden>
+      <div class="panel-hero">
+        <div class="panel-hero-media">
+          <img src="selection/GH-20260725-1122-2.jpg" alt="Sélection du photographe">
+          <div class="panel-hero-overlay"></div>
+        </div>
+        <div class="panel-hero-text">
+          <h2>Sélection</h2>
+        </div>
+      </div>
+      <div class="gallery" id="gallery-selection">
+        <p class="gallery-empty" id="gallery-selection-empty" hidden>
+          Aucune photo trouvée. Ajoutez un fichier <code>photos-selection.json</code> à côté de cette page,
+          ou un dossier <code>selection/</code> contenant les images.
+        </p>
+      </div>
+    </section>
+
+    <section id="panel-groupes" class="panel" role="tabpanel" hidden>
+      <div class="panel-hero">
+        <div class="panel-hero-media">
+          <img src="groupes/GH-20260725-1850.jpg" alt="Groupes" style="object-position: center 70%;">
+          <div class="panel-hero-overlay"></div>
+        </div>
+        <div class="panel-hero-text">
+          <h2>Groupes</h2>
+        </div>
+      </div>
+      <div class="gallery" id="gallery-groupes">
+        <p class="gallery-empty" id="gallery-groupes-empty" hidden>
+          Aucune photo trouvée. Ajoutez un fichier <code>photos-groupes.json</code> à côté de cette page,
+          ou un dossier <code>groupes/</code> contenant les images.
+        </p>
+      </div>
+    </section>
+
+    <section id="panel-soiree" class="panel" role="tabpanel" hidden>
+      <div class="panel-hero">
+        <div class="panel-hero-media">
+          <img src="soiree/GH-20260725-0105-2.jpg" alt="Soirée">
+          <div class="panel-hero-overlay"></div>
+        </div>
+        <div class="panel-hero-text">
+          <h2>Soirée</h2>
+        </div>
+      </div>
+      <div class="gallery" id="gallery-soiree">
+        <p class="gallery-empty" id="gallery-soiree-empty" hidden>
+          Aucune photo trouvée. Ajoutez un fichier <code>photos-soiree.json</code> à côté de cette page,
+          ou un dossier <code>soiree/</code> contenant les images.
+        </p>
+      </div>
+    </section>
+
+    <section id="panel-boutique" class="panel" role="tabpanel" hidden>
+      <div class="section-title"><h2>Boutique</h2></div>
+      <div class="shop">
+        <p class="lede">
+          Commandez vos photos préférées au format papier ou encadrées, tirées sur des supports
+          professionnels de haute qualité. Sélectionnez les formats directement sur les photos,
+          ils apparaîtront automatiquement dans le formulaire ci-dessous.
+        </p>
+      </div>
+
+      <div class="shop-section">
+        <h3>Tirages papiers</h3>
+        <p class="shop-sub">Papier satiné ou brillant</p>
+        <div class="price-grid">
+          <div class="price-row"><span>10 × 15 cm</span><span>5 €</span></div>
+          <div class="price-row"><span>20 × 30 cm</span><span>15 €</span></div>
+          <div class="price-row"><span>30 × 45 cm</span><span>25 €</span></div>
+        </div>
+      </div>
+
+      <div class="shop-section">
+        <h3>Photos encadrées</h3>
+        <p class="shop-sub">Cadre en bois noir, blanc ou chêne · Papier satiné ou mat </p>
+        <div class="price-grid">
+          <div class="price-row"><span>30 × 40 cm</span><span>119 €</span></div>
+          <div class="price-row"><span>40 × 50 cm</span><span>159 €</span></div>
+          <div class="price-row"><span>50 × 60 cm</span><span>209 €</span></div>
+          <div class="price-row"><span>60 × 80 cm</span><span>259 €</span></div>
+        </div>
+      </div>
+
+      <div class="shop-preview" id="favorites-preview">
+        <h3>Coup de cœur</h3>
+        <p class="shop-sub">Photos que vous avez likées. Cliquez pour ouvrir dans la galerie.</p>
+        <div class="preview-grid" id="favorites-preview-grid">
+          <p class="preview-empty">Aucun coup de cœur pour le moment.</p>
+        </div>
+      </div>
+
+      <div class="cart" id="cart-preview">
+        <h3>Panier</h3>
+        <p class="shop-sub">Photos et formats sélectionnés</p>
+        <div class="cart-items" id="cart-preview-grid">
+          <p class="cart-empty">Votre panier est vide.</p>
+        </div>
+        <div class="cart-summary" id="cart-summary">
+          <div class="cart-summary-row"><span>Total</span><strong id="cart-total">0 €</strong></div>
+        </div>
+      </div>
+
+      <div class="shop-form" id="shop-form">
+        <h3>Passer commande</h3>
+        <p class="shop-sub">Indiquez vos coordonnées pour finaliser la commande.</p>
+        <form id="order-form" action="https://api.web3forms.com/submit" method="POST">
+          <input type="hidden" name="access_key" value="184868dc-38d5-4531-ae6e-b0adbe588c94">
+          <input type="hidden" name="subject" value="Nouvelle commande - Galerie Hélène & Quentin">
+          <input type="hidden" name="from_name" value="Galerie Hélène & Quentin">
+          <input type="hidden" name="replyto" id="order-replyto">
+          <input type="hidden" name="redirect" value="https://web3forms.com/success">
+          <input type="hidden" name="Commande" id="order-photos">
+          <input type="hidden" name="Commande complete" id="order-photos-full">
+          <input type="hidden" name="Total" id="order-total">
+
+          <label for="order-name">Nom</label>
+          <input type="text" id="order-name" name="Nom" required>
+
+          <label for="order-email">Email</label>
+          <input type="email" id="order-email" name="Email" required>
+
+          <label for="order-address">Adresse de livraison</label>
+          <textarea id="order-address" name="Adresse de livraison" rows="4" placeholder="Numéro, rue, code postal, ville" required></textarea>
+
+          <button type="submit">Envoyer la commande</button>
+          <p class="form-status" id="order-status" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+
+      <div class="shop-note">
+        Livraison en France métropolitaine comprise · Commande par email.
+      </div>
+    </section>
+  </main>
+
+  <div class="lightbox" id="lightbox" hidden aria-hidden="true">
+    <button class="lb-close" id="lb-close" aria-label="Fermer">×</button>
+    <button class="lb-prev" id="lb-prev" aria-label="Précédente">‹</button>
+    <button class="lb-next" id="lb-next" aria-label="Suivante">›</button>
+    <img class="lb-img" id="lb-img" alt="">
+    <div class="lb-caption">
+      <span id="lb-caption-text"></span>
+      <button class="lb-fav-btn" type="button" id="lb-fav" aria-label="Ajouter aux coups de cœur">♡</button>
+      <button class="lb-cart-btn" type="button" id="lb-cart" aria-label="Ajouter au panier">🛒</button>
+    </div>
+  </div>
+
+  <div class="format-picker" id="format-picker" hidden>
+    <div class="format-picker-inner">
+      <h4>Ajouter au panier</h4>
+      <div class="format-section">
+        <p>Tirages papiers</p>
+        <div class="format-options">
+          <button type="button" data-format="10×15 cm papier">10×15 cm<br><small>5 €</small></button>
+          <button type="button" data-format="20×30 cm papier">20×30 cm<br><small>15 €</small></button>
+          <button type="button" data-format="30×45 cm papier">30×45 cm<br><small>25 €</small></button>
+        </div>
+        <div class="paper-options">
+          <label>Finition
+            <select id="paper-finish">
+              <option value="satiné">Satiné</option>
+              <option value="brillant">Brillant</option>
+            </select>
+          </label>
+        </div>
+      </div>
+      <div class="format-section">
+        <p>Photos encadrées</p>
+        <div class="format-options">
+          <button type="button" data-format="30×40 cm encadré">30×40 cm<br><small>119 €</small></button>
+          <button type="button" data-format="40×50 cm encadré">40×50 cm<br><small>159 €</small></button>
+          <button type="button" data-format="50×60 cm encadré">50×60 cm<br><small>209 €</small></button>
+          <button type="button" data-format="60×80 cm encadré">60×80 cm<br><small>259 €</small></button>
+        </div>
+        <div class="frame-options">
+          <label>Cadre
+            <select id="frame-color">
+              <option value="noir">Noir</option>
+              <option value="blanc">Blanc</option>
+              <option value="chêne">Chêne</option>
+            </select>
+          </label>
+          <label>Finition papier
+            <select id="frame-finish">
+              <option value="satiné">Satiné</option>
+              <option value="mat">Mat</option>
+            </select>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="frame-margin" checked>
+            <span>Avec marge blanche</span>
+          </label>
+        </div>
+      </div>
+      <button class="format-picker-confirm" type="button" id="format-picker-confirm" disabled>Ajouter au panier</button>
+      <button class="format-picker-close" type="button" id="format-picker-close">Annuler</button>
+    </div>
+  </div>
+
+  <footer class="site-footer">
+    <span>Hélène &amp; Quentin</span>
+    <span class="sep">·</span>
+    <span>Photographies · Gabriel Hardy</span>
+  </footer>
+
+  <script src="./app.js?v=2"></script>
+</body>
+</html>

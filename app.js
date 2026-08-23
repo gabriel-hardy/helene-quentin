@@ -1,0 +1,793 @@
+(async () => {
+  'use strict';
+
+  // ── Tabs ──────────────────────────────────────────────
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panels = document.querySelectorAll('.panel');
+
+  const mainHero = document.querySelector('.hero');
+  const siteNav = document.querySelector('.site-nav');
+
+  function activate(name) {
+    tabs.forEach(t => {
+      const on = t.dataset.tab === name;
+      t.classList.toggle('is-active', on);
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(p => {
+      const on = p.id === `panel-${name}`;
+      p.classList.toggle('is-active', on);
+      p.hidden = !on;
+    });
+    if (mainHero) {
+      mainHero.classList.toggle('is-hidden', name !== 'galerie');
+    }
+    if (siteNav) {
+      siteNav.classList.toggle('is-scrolled', window.scrollY > 50);
+      siteNav.classList.toggle('is-solid', false);
+      siteNav.classList.toggle('is-boutique', name === 'boutique');
+    }
+    if (location.hash !== `#${name}`) {
+      history.replaceState(null, '', `#${name}`);
+    }
+  }
+
+  tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
+
+  const initial = (location.hash || '').replace('#', '');
+  if (['galerie', 'groupes', 'soiree', 'boutique'].includes(initial)) {
+    activate(initial);
+  }
+
+  // ── Parallax hero + nav switch on scroll ──────────────
+  const heroMedias = document.querySelectorAll('.hero-media, .panel-hero-media');
+
+  function onScroll() {
+    const y = window.scrollY;
+    const vh = window.innerHeight;
+
+    if (siteNav) {
+      siteNav.classList.toggle('is-scrolled', y > 50);
+    }
+
+    heroMedias.forEach(media => {
+      const hero = media.closest('.hero, .panel-hero');
+      if (!hero) return;
+      const rect = hero.getBoundingClientRect();
+      // Skip heroes far outside the viewport for performance
+      if (rect.bottom < -vh || rect.top > vh * 2) return;
+      // Parallax A: background moves at 25% of scroll speed
+      media.style.transform = `translateY(${rect.top * 0.25}px)`;
+    });
+  }
+
+  window.addEventListener('scroll', onScroll, { passive: true });
+  onScroll();
+
+  // ── Gallery loader ────────────────────────────────────
+  const galleries = {
+    galerie: { photos: [], el: document.getElementById('gallery'), empty: document.getElementById('gallery-empty') },
+    selection: { photos: [], el: document.getElementById('gallery-selection'), empty: document.getElementById('gallery-selection-empty') },
+    groupes: { photos: [], el: document.getElementById('gallery-groupes'), empty: document.getElementById('gallery-groupes-empty') },
+    soiree: { photos: [], el: document.getElementById('gallery-soiree'), empty: document.getElementById('gallery-soiree-empty') }
+  };
+  const heroImg = document.getElementById('hero-img');
+  let currentSet = 'galerie';
+
+  async function loadGallery(set, url) {
+    const g = galleries[set];
+    try {
+      const res = await fetch(url, { cache: 'no-store' });
+      if (!res.ok) throw new Error('no manifest');
+      const data = await res.json();
+      g.photos = Array.isArray(data) ? data : (data.photos || []);
+      g.photos = g.photos.map(p => typeof p === 'string' ? { src: p } : p);
+    } catch {
+      g.photos = [];
+    }
+    renderGallery(set);
+  }
+
+  function renderGallery(set) {
+    const g = galleries[set];
+    if (g.photos.length === 0) {
+      g.empty.hidden = false;
+      return;
+    }
+    g.empty.hidden = true;
+
+    // Hero shot is fixed in HTML (galerie/GH-20260725-2208.jpg); do not override it
+    // with the first gallery photo.
+
+    const frag = document.createDocumentFragment();
+    g.photos.forEach((photo, i) => {
+      const item = document.createElement('div');
+      item.className = 'gallery-item';
+      item.role = 'button';
+      item.tabIndex = 0;
+      item.dataset.index = i;
+      item.dataset.set = set;
+      item.setAttribute('aria-label', photo.alt || `Photo ${i + 1}`);
+      const img = document.createElement('img');
+      img.loading = 'lazy';
+      img.decoding = 'async';
+      img.src = photo.src;
+      img.alt = photo.alt || '';
+      img.addEventListener('load', () => img.classList.add('is-loaded'));
+      const actions = document.createElement('div');
+      actions.className = 'photo-actions';
+
+      const fav = document.createElement('button');
+      fav.className = 'fav-btn';
+      fav.type = 'button';
+      fav.dataset.index = i;
+      fav.dataset.set = set;
+      fav.setAttribute('aria-label', 'Ajouter aux coups de cœur');
+      fav.setAttribute('aria-pressed', 'false');
+      fav.innerHTML = '♡';
+      fav.addEventListener('click', e => {
+        e.stopPropagation();
+        toggleFavorite(set, i);
+      });
+
+      const cart = document.createElement('button');
+      cart.className = 'cart-btn';
+      cart.type = 'button';
+      cart.dataset.index = i;
+      cart.dataset.set = set;
+      cart.setAttribute('aria-label', 'Ajouter au panier');
+      cart.innerHTML = '🛒';
+      cart.addEventListener('click', e => {
+        e.stopPropagation();
+        openFormatPicker(set, i, cart);
+      });
+
+      const download = document.createElement('button');
+      download.className = 'download-btn';
+      download.type = 'button';
+      download.dataset.index = i;
+      download.dataset.set = set;
+      download.setAttribute('aria-label', 'Télécharger la photo');
+      download.innerHTML = '⤓';
+      download.addEventListener('click', e => {
+        e.stopPropagation();
+        downloadPhoto(photo.src, photo.alt || fileNameFromSrc(photo.src));
+      });
+
+      actions.appendChild(fav);
+      actions.appendChild(cart);
+      actions.appendChild(download);
+      item.appendChild(img);
+      item.appendChild(actions);
+      item.addEventListener('click', () => openLightbox(set, i));
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          openLightbox(set, i);
+        }
+      });
+      frag.appendChild(item);
+    });
+    g.el.appendChild(frag);
+  }
+
+  // ── Lightbox refs (déclarées avant les favoris) ───────
+  const lb = document.getElementById('lightbox');
+  const lbImg = document.getElementById('lb-img');
+  const lbCaption = document.getElementById('lb-caption');
+  let current = 0;
+
+  // ── Favorites / panier ─────────────────────────────────
+  const FAV_KEY = 'hq_favorites_v1';
+  let favorites = new Set();
+  let lastAutoFill = '';
+
+  function fileNameFromSrc(src) {
+    return src.split('/').pop().split('?')[0];
+  }
+
+  function downloadPhoto(src, alt) {
+    const link = document.createElement('a');
+    link.href = src;
+    link.download = fileNameFromSrc(src);
+    link.target = '_blank';
+    link.rel = 'noopener';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function favKey(set, i) {
+    const photo = galleries[set] && galleries[set].photos[i];
+    return photo ? fileNameFromSrc(photo.src) : `${set}:${i}`;
+  }
+
+  function photoRef(set, i) {
+    const num = i + 1;
+    if (set === 'soiree') return `Soirée ${num}`;
+    if (set === 'selection') return `Sélection ${num}`;
+    if (set === 'groupes') return `Groupe ${num}`;
+    return `Photo ${num}`;
+  }
+
+  function pruneFavorites() {
+    const valid = new Set();
+    const allPhotos = Object.values(galleries).flatMap(g => g.photos);
+    const allFileNames = new Set(allPhotos.map(p => fileNameFromSrc(p.src)));
+    favorites.forEach(key => {
+      // Legacy format: "set:index"
+      if (key.includes(':')) {
+        const [set, idx] = key.split(':');
+        const i = parseInt(idx, 10);
+        const photo = galleries[set] && galleries[set].photos[i];
+        if (photo) valid.add(fileNameFromSrc(photo.src));
+      } else if (allFileNames.has(key)) {
+        valid.add(key);
+      }
+    });
+    favorites = valid;
+  }
+
+  function loadFavorites() {
+    try {
+      const raw = localStorage.getItem(FAV_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw);
+      data.forEach(({ set, index }) => favorites.add(favKey(set, index)));
+      pruneFavorites();
+      saveFavorites();
+    } catch {}
+  }
+
+  function saveFavorites() {
+    pruneFavorites();
+    const data = Array.from(favorites).map(fileName => ({ src: fileName }));
+    localStorage.setItem(FAV_KEY, JSON.stringify(data));
+  }
+
+  function isFavorite(set, i) { return favorites.has(favKey(set, i)); }
+
+  function toggleFavorite(set, i) {
+    const key = favKey(set, i);
+    if (favorites.has(key)) favorites.delete(key);
+    else favorites.add(key);
+    saveFavorites();
+    syncFavUI();
+  }
+
+  function applyFavStates() {
+    document.querySelectorAll('.fav-btn').forEach(btn => {
+      const set = btn.dataset.set;
+      const i = parseInt(btn.dataset.index, 10);
+      const on = isFavorite(set, i);
+      btn.classList.toggle('is-active', on);
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');;
+      btn.innerHTML = on ? '♥' : '♡';
+    });
+    updateLightboxFav();
+  }
+
+  function updateFavCount() {
+    const count = favorites.size;
+    const badge = document.getElementById('fav-count');
+    const icon = document.getElementById('nav-fav-icon');
+    if (badge) badge.textContent = String(count);
+    if (icon) icon.textContent = count > 0 ? '♥' : '♡';
+  }
+
+  function updateLightboxFav() {
+    const btn = document.getElementById('lb-fav');
+    if (!btn || lb.hidden) return;
+    const on = isFavorite(currentSet, current);
+    btn.classList.toggle('is-active', on);
+    btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    btn.innerHTML = on ? '♥' : '♡';
+    btn.setAttribute('aria-label', on ? 'Retirer des coups de cœur' : 'Ajouter aux coups de cœur');
+  }
+
+  function findFirstPhotoByFileName(fileName) {
+    for (const set of Object.keys(galleries)) {
+      const idx = galleries[set].photos.findIndex(p => fileNameFromSrc(p.src) === fileName);
+      if (idx !== -1) return { set, index: idx };
+    }
+    return null;
+  }
+
+  function generateOrderText() {
+    if (favorites.size === 0) return '';
+    const lines = [];
+    favorites.forEach(fileName => {
+      const match = findFirstPhotoByFileName(fileName);
+      if (!match) return;
+      const { set, index } = match;
+      lines.push(`${photoRef(set, index)} — `);
+    });
+    return lines.join('\n');
+  }
+
+  function updateOrderText() {
+    const ta = document.getElementById('order-photos');
+    if (!ta) return;
+    const text = generateOrderText();
+    if (ta.value === '' || ta.value === lastAutoFill) {
+      ta.value = text;
+      lastAutoFill = text;
+    }
+  }
+
+  function syncFavUI() {
+    updateFavCount();
+    applyFavStates();
+    updateOrderText();
+    renderFavoritesPreview();
+  }
+
+  document.getElementById('nav-fav').addEventListener('click', () => {
+    activate('boutique');
+    document.getElementById('favorites-preview')?.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  function renderFavoritesPreview() {
+    const grid = document.getElementById('favorites-preview-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (favorites.size === 0) {
+      grid.innerHTML = '<p class="preview-empty">Aucun coup de cœur pour le moment.</p>';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    favorites.forEach(fileName => {
+      const match = findFirstPhotoByFileName(fileName);
+      if (!match) return;
+      const { set, index } = match;
+      const photo = galleries[set].photos[index];
+      frag.appendChild(createPreviewItem(set, index, photo, fileName, false));
+    });
+    grid.appendChild(frag);
+  }
+
+  function createPreviewItem(set, index, photo, fileName, isCart, line) {
+    const item = document.createElement('div');
+    item.className = 'preview-item';
+    item.tabIndex = 0;
+    item.setAttribute('role', 'button');
+    item.setAttribute('aria-label', photo.alt || fileName);
+
+    const img = document.createElement('img');
+    img.src = photo.src;
+    img.alt = photo.alt || '';
+    img.loading = 'lazy';
+    img.addEventListener('load', () => img.classList.add('is-loaded'));
+    item.appendChild(img);
+
+    const info = document.createElement('div');
+    info.className = 'preview-item-info';
+    info.textContent = isCart ? line : photoRef(set, index);
+    item.appendChild(info);
+
+    if (isCart) {
+      const remove = document.createElement('button');
+      remove.className = 'preview-remove';
+      remove.type = 'button';
+      remove.setAttribute('aria-label', 'Retirer du panier');
+      remove.innerHTML = '×';
+      remove.addEventListener('click', e => {
+        e.stopPropagation();
+        removeFromCart(set, index, line);
+      });
+      item.appendChild(remove);
+    }
+
+    item.addEventListener('click', () => openLightbox(set, index));
+    item.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openLightbox(set, index);
+      }
+    });
+
+    return item;
+  }
+
+  document.getElementById('lb-fav').addEventListener('click', e => {
+    e.stopPropagation();
+    toggleFavorite(currentSet, current);
+  });
+
+  document.getElementById('lb-cart').addEventListener('click', e => {
+    e.stopPropagation();
+    openFormatPicker(currentSet, current, document.getElementById('lb-cart'));
+  });
+
+  // ── Cart (panier) ─────────────────────────────────────
+  const CART_KEY = 'hq_cart_v1';
+  let cart = [];
+
+  function cartKey(item) { return `${item.set}:${item.index}:${item.line}`; }
+
+  function priceFromLine(line) {
+    const map = {
+      '10×15 cm papier': 5,
+      '20×30 cm papier': 15,
+      '30×45 cm papier': 25,
+      '30×40 cm encadré': 119,
+      '40×50 cm encadré': 159,
+      '50×60 cm encadré': 209,
+      '60×80 cm encadré': 259
+    };
+    for (const key of Object.keys(map)) {
+      if (line.startsWith(key)) return map[key];
+    }
+    return 0;
+  }
+
+  function pruneCart() {
+    cart = cart.filter(item => {
+      const g = galleries[item.set];
+      return g && g.photos[item.index];
+    });
+  }
+
+  function loadCart() {
+    try {
+      const raw = localStorage.getItem(CART_KEY);
+      cart = raw ? JSON.parse(raw) : [];
+      if (!Array.isArray(cart)) cart = [];
+      pruneCart();
+    } catch {
+      cart = [];
+    }
+  }
+
+  function saveCart() {
+    pruneCart();
+    localStorage.setItem(CART_KEY, JSON.stringify(cart));
+  }
+
+  function addToCart(set, index, line) {
+    const item = { set, index, line };
+    const key = cartKey(item);
+    if (!cart.some(it => cartKey(it) === key)) {
+      cart.push(item);
+      saveCart();
+      syncCartUI();
+    }
+  }
+
+  function removeFromCart(set, index, line) {
+    const key = `${set}:${index}:${line}`;
+    cart = cart.filter(it => cartKey(it) !== key);
+    saveCart();
+    syncCartUI();
+  }
+
+  function updateCartCount() {
+    const count = cart.length;
+    const badge = document.getElementById('cart-count');
+    if (badge) badge.textContent = String(count);
+  }
+
+  function generateCartOrderText(includeIds = true) {
+    if (cart.length === 0) return '';
+    return cart.map(item => {
+      const photo = galleries[item.set].photos[item.index];
+      const id = photo ? fileNameFromSrc(photo.src).replace(/\.[^.]+$/, '') : '';
+      const ref = photoRef(item.set, item.index);
+      const price = priceFromLine(item.line);
+      if (includeIds) {
+        return `${ref} — ${id} — ${item.line} — ${price} €`;
+      }
+      return `${ref} — ${item.line} — ${price} €`;
+    }).join('\n');
+  }
+
+  function cartTotal() {
+    return cart.reduce((sum, item) => sum + priceFromLine(item.line), 0);
+  }
+
+  function updateOrderText() {
+    const ta = document.getElementById('order-photos');
+    const taFull = document.getElementById('order-photos-full');
+    const totalInput = document.getElementById('order-total');
+    const totalEl = document.getElementById('cart-total');
+    const summary = document.getElementById('cart-summary');
+    const text = generateCartOrderText(false);
+    const textFull = generateCartOrderText(true);
+    const total = cartTotal();
+    if (ta) ta.value = text;
+    if (taFull) taFull.value = textFull;
+    if (totalInput) totalInput.value = `${total} €`;
+    if (totalEl) totalEl.textContent = `${total} €`;
+    if (summary) summary.hidden = cart.length === 0;
+  }
+
+  function syncCartUI() {
+    updateCartCount();
+    applyCartStates();
+    updateOrderText();
+    renderCartPreview();
+  }
+
+  function renderCartPreview() {
+    const grid = document.getElementById('cart-preview-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+
+    if (cart.length === 0) {
+      grid.innerHTML = '<p class="cart-empty">Votre panier est vide.</p>';
+      return;
+    }
+
+    const frag = document.createDocumentFragment();
+    cart.forEach(item => {
+      const photo = galleries[item.set].photos[item.index];
+      if (!photo) return;
+      frag.appendChild(createCartItem(item.set, item.index, photo, item.line));
+    });
+    grid.appendChild(frag);
+  }
+
+  function createCartItem(set, index, photo, line) {
+    const price = priceFromLine(line);
+    const item = document.createElement('div');
+    item.className = 'cart-item';
+
+    const img = document.createElement('img');
+    img.src = photo.src;
+    img.alt = photo.alt || '';
+    img.loading = 'lazy';
+    img.addEventListener('load', () => img.classList.add('is-loaded'));
+    item.appendChild(img);
+
+    const body = document.createElement('div');
+    body.className = 'cart-item-body';
+
+    const meta = document.createElement('div');
+    meta.className = 'cart-item-meta';
+
+    const ref = document.createElement('span');
+    ref.className = 'cart-item-ref';
+    ref.textContent = photoRef(set, index);
+    meta.appendChild(ref);
+
+    const format = document.createElement('span');
+    format.className = 'cart-item-format';
+    format.textContent = line;
+    meta.appendChild(format);
+
+    body.appendChild(meta);
+
+    const priceEl = document.createElement('strong');
+    priceEl.className = 'cart-item-price';
+    priceEl.textContent = `${price} €`;
+    body.appendChild(priceEl);
+
+    item.appendChild(body);
+
+    const remove = document.createElement('button');
+    remove.className = 'cart-item-remove';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Retirer du panier');
+    remove.innerHTML = '×';
+    remove.addEventListener('click', () => removeFromCart(set, index, line));
+    item.appendChild(remove);
+
+    item.addEventListener('click', e => {
+      if (e.target.closest('.cart-item-remove')) return;
+      openLightbox(set, index);
+    });
+
+    return item;
+  }
+
+  function applyCartStates() {
+    document.querySelectorAll('.cart-btn').forEach(btn => {
+      const set = btn.dataset.set;
+      const i = parseInt(btn.dataset.index, 10);
+      const inCart = cart.some(it => it.set === set && it.index === i);
+      btn.classList.toggle('is-active', inCart);
+    });
+    updateLightboxCart();
+  }
+
+  function updateLightboxCart() {
+    const btn = document.getElementById('lb-cart');
+    if (!btn || lb.hidden) return;
+    const inCart = cart.some(it => it.set === currentSet && it.index === current);
+    btn.classList.toggle('is-active', inCart);
+  }
+
+  document.getElementById('nav-cart').addEventListener('click', () => {
+    activate('boutique');
+    document.getElementById('cart-preview')?.scrollIntoView({ behavior: 'smooth' });
+  });
+
+  // ── Format picker ─────────────────────────────────────
+  const picker = document.getElementById('format-picker');
+  const frameColor = document.getElementById('frame-color');
+  const frameMargin = document.getElementById('frame-margin');
+  const frameFinish = document.getElementById('frame-finish');
+  const paperFinish = document.getElementById('paper-finish');
+  const pickerConfirm = document.getElementById('format-picker-confirm');
+  let pickerTarget = null;
+  let pickerFormat = null;
+
+  function formatLine(base) {
+    if (base.includes('encadré')) {
+      const color = frameColor.value;
+      const finish = frameFinish ? frameFinish.value : 'satiné';
+      const margin = frameMargin.checked ? 'avec marge' : 'sans marge';
+      return `${base} ${color} · ${finish} · ${margin}`;
+    }
+    if (base.includes('papier') && paperFinish) {
+      return `${base} ${paperFinish.value}`;
+    }
+    return base;
+  }
+
+  function updatePickerSelection() {
+    picker.querySelectorAll('.format-options button[data-format]').forEach(btn => {
+      btn.classList.toggle('is-selected', btn.dataset.format === pickerFormat);
+    });
+    if (pickerConfirm) pickerConfirm.disabled = !pickerFormat;
+  }
+
+  function openFormatPicker(set, index, anchor) {
+    pickerTarget = { set, index };
+    pickerFormat = null;
+    updatePickerSelection();
+    picker.hidden = false;
+    positionPicker(anchor);
+  }
+
+  function closeFormatPicker() {
+    picker.hidden = true;
+    pickerTarget = null;
+    pickerFormat = null;
+    updatePickerSelection();
+  }
+
+  function positionPicker(anchor) {
+    if (!anchor) return;
+    const rect = anchor.getBoundingClientRect();
+    const pickerRect = picker.getBoundingClientRect();
+    let left = rect.left + rect.width / 2 - pickerRect.width / 2;
+    let top = rect.bottom + 10;
+    if (left + pickerRect.width > window.innerWidth - 12) left = window.innerWidth - pickerRect.width - 12;
+    if (left < 12) left = 12;
+    if (top + pickerRect.height > window.innerHeight - 12) top = rect.top - pickerRect.height - 10;
+    picker.style.left = `${left}px`;
+    picker.style.top = `${top}px`;
+  }
+
+  picker.querySelectorAll('.format-options button[data-format]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      pickerFormat = btn.dataset.format;
+      updatePickerSelection();
+    });
+  });
+
+  pickerConfirm.addEventListener('click', () => {
+    if (!pickerTarget || !pickerFormat) return;
+    addToCart(pickerTarget.set, pickerTarget.index, formatLine(pickerFormat));
+    closeFormatPicker();
+  });
+
+  document.getElementById('format-picker-close').addEventListener('click', closeFormatPicker);
+  picker.addEventListener('click', e => { if (e.target === picker) closeFormatPicker(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !picker.hidden) closeFormatPicker(); });
+
+  await Promise.all([
+    loadGallery('galerie', './photos.json'),
+    loadGallery('selection', './photos-selection.json'),
+    loadGallery('groupes', './photos-groupes.json'),
+    loadGallery('soiree', './photos-soiree.json')
+  ]);
+  loadFavorites();
+  loadCart();
+  syncFavUI();
+  syncCartUI();
+
+  // ── Lightbox ──────────────────────────────────────────
+  function openLightbox(set, i) {
+    currentSet = set;
+    current = i;
+    updateLightbox();
+    lb.hidden = false;
+    lb.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lb.hidden = true;
+    lb.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  }
+
+  function updateLightbox() {
+    const photos = galleries[currentSet].photos;
+    if (!photos[current]) return;
+    lbImg.src = photos[current].src;
+    lbImg.alt = photos[current].alt || '';
+    const caption = document.getElementById('lb-caption-text');
+    if (caption) caption.textContent = `${current + 1} / ${photos.length}`;
+    updateLightboxFav();
+  }
+
+  function next() { current = (current + 1) % galleries[currentSet].photos.length; updateLightbox(); }
+  function prev() { current = (current - 1 + galleries[currentSet].photos.length) % galleries[currentSet].photos.length; updateLightbox(); }
+
+  document.getElementById('lb-close').addEventListener('click', closeLightbox);
+  document.getElementById('lb-next').addEventListener('click', next);
+  document.getElementById('lb-prev').addEventListener('click', prev);
+  lb.addEventListener('click', e => { if (e.target === lb) closeLightbox(); });
+
+  document.addEventListener('keydown', e => {
+    if (lb.hidden) return;
+    if (e.key === 'Escape') closeLightbox();
+    else if (e.key === 'ArrowRight') next();
+    else if (e.key === 'ArrowLeft') prev();
+  });
+
+  // ── Order form (Web3Forms) ────────────────────────────
+  const orderForm = document.getElementById('order-form');
+  const orderEmail = document.getElementById('order-email');
+  const orderReplyTo = document.getElementById('order-replyto');
+  const orderStatus = document.getElementById('order-status');
+
+  if (orderForm) {
+    orderForm.addEventListener('submit', async e => {
+      e.preventDefault();
+      if (orderReplyTo) orderReplyTo.value = orderEmail.value;
+
+      // Ensure the hidden field always contains the full order with photo IDs
+      const taFull = document.getElementById('order-photos-full');
+      if (taFull) taFull.value = generateCartOrderText(true);
+
+      const submitBtn = orderForm.querySelector('button[type="submit"]');
+      const originalText = submitBtn ? submitBtn.textContent : 'Envoyer la commande';
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Envoi en cours…';
+      }
+      if (orderStatus) orderStatus.textContent = '';
+
+      try {
+        const formData = new FormData(orderForm);
+        const response = await fetch(orderForm.action, {
+          method: 'POST',
+          body: formData
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success) {
+          if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Un email de confirmation vous a été adressé.';
+          orderForm.reset();
+          cart.length = 0;
+          saveCart();
+          syncCartUI();
+        } else {
+          throw new Error(data.message || 'Erreur lors de l\'envoi.');
+        }
+      } catch (err) {
+        if (orderStatus) orderStatus.textContent = `Erreur : ${err.message}. Vérifiez votre clé Web3Forms.`;
+      } finally {
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = originalText;
+        }
+      }
+    });
+  }
+
+  // ── Download all (placeholder) ────────────────────────
+  const downloadBtn = document.getElementById('nav-download');
+  if (downloadBtn) {
+    downloadBtn.addEventListener('click', () => {
+      alert('Téléchargement groupé à configurer.');
+    });
+  }
+
+})();
