@@ -8,7 +8,7 @@
   const mainHero = document.querySelector('.hero');
   const siteNav = document.querySelector('.site-nav');
 
-  function activate(name) {
+  function activate(name, { scroll = true } = {}) {
     tabs.forEach(t => {
       const on = t.dataset.tab === name;
       t.classList.toggle('is-active', on);
@@ -29,6 +29,9 @@
     }
     if (location.hash !== `#${name}`) {
       history.replaceState(null, '', `#${name}`);
+    }
+    if (scroll) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   }
 
