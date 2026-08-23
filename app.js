@@ -89,6 +89,8 @@
   }
 
   // ── Progressive image loading ─────────────────────────
+  // Load images visible in viewport + roughly one full screen below to avoid pop-in while scrolling.
+  const preloadBelow = Math.max(Math.round(window.innerHeight * 1.2), 600);
   const imageObserver = 'IntersectionObserver' in window
     ? new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -97,7 +99,7 @@
             imageObserver.unobserve(entry.target);
           }
         });
-      }, { rootMargin: '300px 0px 300px 0px', threshold: 0 })
+      }, { rootMargin: `0px 0px ${preloadBelow}px 0px`, threshold: 0 })
     : null;
 
   function mountItemImage(item) {
@@ -128,6 +130,7 @@
     // with the first gallery photo.
 
     const frag = document.createDocumentFragment();
+    const observedItems = [];
     g.photos.forEach((photo, i) => {
       const item = document.createElement('div');
       item.className = 'gallery-item';
@@ -190,15 +193,19 @@
         }
       });
 
+      frag.appendChild(item);
+      observedItems.push(item);
+    });
+    g.el.appendChild(frag);
+
+    // Observe only after items are in the DOM, otherwise IntersectionObserver won't fire.
+    observedItems.forEach(item => {
       if (imageObserver) {
         imageObserver.observe(item);
       } else {
         mountItemImage(item);
       }
-
-      frag.appendChild(item);
     });
-    g.el.appendChild(frag);
   }
 
   // ── Lightbox refs (déclarées avant les favoris) ───────
