@@ -8,6 +8,10 @@
   const mainHero = document.querySelector('.hero');
   const siteNav = document.querySelector('.site-nav');
 
+  if ('scrollRestoration' in history) {
+    history.scrollRestoration = 'manual';
+  }
+
   function activate(name, { scroll = true } = {}) {
     tabs.forEach(t => {
       const on = t.dataset.tab === name;
@@ -31,14 +35,14 @@
       history.replaceState(null, '', `#${name}`);
     }
     if (scroll) {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo(0, 0);
     }
   }
 
   tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
 
   const initial = (location.hash || '').replace('#', '');
-  if (['galerie', 'groupes', 'soiree', 'boutique', 'contact'].includes(initial)) {
+  if (['galerie', 'selection', 'groupes', 'soiree', 'boutique', 'contact'].includes(initial)) {
     activate(initial);
   }
 
@@ -80,7 +84,7 @@
   async function loadGallery(set, url) {
     const g = galleries[set];
     try {
-      const res = await fetch(url, { cache: 'no-store' });
+      const res = await fetch(url);
       if (!res.ok) throw new Error('no manifest');
       const data = await res.json();
       g.photos = Array.isArray(data) ? data : (data.photos || []);
@@ -94,7 +98,7 @@
   // ── Progressive image loading ─────────────────────────
   // Load images visible in viewport + roughly one full screen in every direction,
   // so scrolling up or down feels smooth and empty slots fill quickly.
-  const preloadMargin = Math.max(Math.round(window.innerHeight * 1.2), 800);
+  const preloadMargin = Math.max(Math.round(window.innerHeight * 0.8), 500);
   const imageObserver = 'IntersectionObserver' in window
     ? new IntersectionObserver(entries => {
         entries.forEach(entry => {
@@ -115,9 +119,9 @@
 
     const img = document.createElement('img');
     // We decided to load it now; native lazy would postpone it when off-screen.
-    img.loading = 'eager';
+    img.loading = 'lazy';
     img.decoding = 'async';
-    img.src = photo.src;
+    img.src = photo.thumb || photo.src;
     img.alt = photo.alt || '';
     img.addEventListener('load', () => img.classList.add('is-loaded'));
     item.insertBefore(img, item.firstChild);
