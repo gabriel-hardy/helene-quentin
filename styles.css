@@ -971,6 +971,181 @@ main {
   text-align: center;
 }
 
+.order-quote {
+  margin-top: 48px;
+  padding: 28px;
+  border: 1px solid rgba(38, 33, 26, 0.15);
+  background: #fdfcf8;
+}
+
+.order-quote-header,
+.order-quote-item,
+.order-quote-total {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.order-quote-header {
+  margin-bottom: 20px;
+}
+
+.order-quote h3 {
+  margin: 0;
+  text-align: left;
+}
+
+.order-quote-print {
+  appearance: none;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  padding: 9px 12px;
+  font-family: var(--sans);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.order-quote-note {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.order-quote-parties {
+  display: flex;
+  justify-content: space-between;
+  gap: 32px;
+  min-height: 120px;
+  margin: 24px 0 32px;
+}
+
+.order-quote-party {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.order-quote-party #order-quote-customer-address {
+  white-space: pre-line;
+}
+
+.order-quote-party strong {
+  margin-bottom: 4px;
+  color: var(--ink);
+}
+
+.order-quote-client {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.order-quote-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  margin-bottom: 40px;
+  border: 1px solid rgba(38, 33, 26, 0.15);
+  font-size: 13px;
+  text-align: center;
+}
+
+.order-quote-meta span,
+.order-quote-meta strong {
+  padding: 12px;
+}
+
+.order-quote-meta span {
+  background: rgba(38, 33, 26, 0.08);
+}
+
+.order-quote-items {
+  margin-top: 20px;
+  border-top: 1px solid rgba(38, 33, 26, 0.1);
+}
+
+.order-quote-item {
+  padding: 12px 0;
+  border-bottom: 1px solid rgba(38, 33, 26, 0.1);
+  font-size: 14px;
+}
+
+.order-quote-footer {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-top: 48px;
+}
+
+.order-quote-bank {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.order-quote-item span {
+  line-height: 1.4;
+}
+
+.order-quote-item strong,
+.order-quote-total strong {
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+.order-quote-total {
+  padding-top: 18px;
+  font-family: var(--serif);
+  font-size: 18px;
+}
+
+.order-quote-total strong {
+  font-size: 24px;
+}
+
+.order-quote-note {
+  margin: 20px 0 0;
+  font-style: italic;
+}
+
+@media (max-width: 560px) {
+  .order-quote-parties,
+  .order-quote-footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .order-quote-client {
+    align-items: flex-start;
+    text-align: left;
+  }
+}
+
+@media print {
+  body > *:not(main),
+  main > section:not(#panel-boutique),
+  #panel-boutique > *:not(.shop-form),
+  .shop-form > form,
+  .order-status,
+  .order-quote-print {
+    display: none !important;
+  }
+
+  .shop-form,
+  .order-quote {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+}
+
 .shop-note {
   max-width: 720px;
   margin: 0 auto 80px;

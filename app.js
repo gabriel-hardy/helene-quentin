@@ -320,11 +320,8 @@
   }
 
   function photoRef(set, i) {
-    const num = i + 1;
-    if (set === 'soiree') return `Soirée ${num}`;
-    if (set === 'selection') return `Sélection ${num}`;
-    if (set === 'groupes') return `Groupe ${num}`;
-    return `Photo ${num}`;
+    const photo = galleries[set] && galleries[set].photos[i];
+    return photo ? `Photo ${fileNameFromSrc(photo.src)}` : `Photo ${i + 1}`;
   }
 
   function pruneFavorites() {
@@ -456,6 +453,16 @@
     if (favoritesPreview) {
       const navHeight = siteNav ? siteNav.offsetHeight : 0;
       const top = favoritesPreview.getBoundingClientRect().top + window.scrollY - navHeight - 12;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
+  });
+
+  document.getElementById('nav-cart').addEventListener('click', () => {
+    activate('boutique', { scroll: false });
+    const cartPreview = document.getElementById('cart-preview');
+    if (cartPreview) {
+      const navHeight = siteNav ? siteNav.offsetHeight : 0;
+      const top = cartPreview.getBoundingClientRect().top + window.scrollY - navHeight - 12;
       window.scrollTo({ top, behavior: 'smooth' });
     }
   });
@@ -839,7 +846,7 @@
     lbImg.src = photos[current].src;
     lbImg.alt = photos[current].alt || '';
     const caption = document.getElementById('lb-caption-text');
-    if (caption) caption.textContent = `${current + 1} / ${photos.length}`;
+    if (caption) caption.textContent = photoRef(currentSet, current);
     updateLightboxFav();
   }
 
@@ -863,10 +870,121 @@
   const orderEmail = document.getElementById('order-email');
   const orderReplyTo = document.getElementById('order-replyto');
   const orderStatus = document.getElementById('order-status');
+  const orderQuote = document.getElementById('order-quote');
+  const orderQuoteCustomerName = document.getElementById('order-quote-customer-name');
+  const orderQuoteCustomerEmail = document.getElementById('order-quote-customer-email');
+  const orderQuoteCustomerAddress = document.getElementById('order-quote-customer-address');
+  const orderQuoteDate = document.getElementById('order-quote-date');
+  const orderQuoteItems = document.getElementById('order-quote-items');
+  const orderQuoteTotal = document.getElementById('order-quote-total');
+  const orderQuotePrint = document.getElementById('order-quote-print');
+
+  function renderOrderQuote(customer, orderItems, total) {
+    if (!orderQuote || !orderQuoteCustomerName || !orderQuoteCustomerEmail || !orderQuoteCustomerAddress || !orderQuoteDate || !orderQuoteItems || !orderQuoteTotal) return;
+    orderQuoteCustomerName.textContent = customer.name;
+    orderQuoteCustomerEmail.textContent = customer.email;
+    orderQuoteCustomerAddress.textContent = customer.address;
+    orderQuoteDate.textContent = new Intl.DateTimeFormat('fr-FR').format(new Date());
+    orderQuoteItems.innerHTML = '';
+    orderItems.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'order-quote-item';
+      row.innerHTML = `<span>${item.reference} — ${item.line}</span><strong>${item.price} €</strong>`;
+      orderQuoteItems.appendChild(row);
+    });
+    orderQuoteTotal.textContent = `${total} €`;
+    orderQuote.hidden = false;
+  }
+
+  async function downloadOrderQuote(customer, orderItems, total) {
+    if (!window.PDFLib) {
+      if (orderStatus) orderStatus.textContent += ' Le téléchargement du devis est momentanément indisponible.';
+      return;
+    }
+
+    const { PDFDocument, StandardFonts, rgb } = window.PDFLib;
+    const pdf = await PDFDocument.create();
+    const page = pdf.addPage([595.28, 841.89]);
+    const regular = await pdf.embedFont(StandardFonts.Helvetica);
+    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const ink = rgb(0.15, 0.13, 0.10);
+    const muted = rgb(0.38, 0.34, 0.30);
+    const light = rgb(0.90, 0.90, 0.90);
+    const margin = 36;
+    const right = page.getWidth() - margin;
+    const draw = (text, x, y, size = 10, font = regular, color = ink) => {
+      page.drawText(String(text), { x, y, size, font, color });
+    };
+    const drawRight = (text, y, size = 10, font = regular, color = ink) => {
+      const value = String(text);
+      draw(value, right - font.widthOfTextAtSize(value, size), y, size, font, color);
+    };
+    const date = new Intl.DateTimeFormat('fr-FR').format(new Date());
+
+    draw('DEVIS RECAPITULATIF', margin, 790, 18, bold);
+    draw('Gabriel Hardy', margin, 738, 12, bold);
+    draw('2 rue Philippe de Beaumanoir', margin, 721);
+    draw('78540 Vernouillet', margin, 706);
+    draw('Siret : 879 734 366 00013', margin, 686, 10, bold);
+    drawRight(customer.name, 738, 12, bold);
+    customer.address.split(/\r?\n/).forEach((line, index) => drawRight(line, 721 - index * 15));
+    drawRight(customer.email, 721 - customer.address.split(/\r?\n/).length * 15, 10, regular, muted);
+
+    page.drawRectangle({ x: margin, y: 615, width: 275, height: 30, color: light });
+    page.drawRectangle({ x: margin + 275, y: 615, width: 248, height: 30, borderColor: light, borderWidth: 1 });
+    draw('Jour de facturation', margin + 38, 625, 10, bold);
+    draw(date, margin + 350, 625, 10, bold);
+
+    const tableTop = 565;
+    const tableHeight = 28 + Math.max(orderItems.length, 1) * 28;
+    page.drawRectangle({ x: margin, y: tableTop, width: 523, height: 28, color: light });
+    page.drawRectangle({ x: margin, y: tableTop - tableHeight, width: 523, height: tableHeight, borderColor: light, borderWidth: 1 });
+    page.drawLine({ start: { x: 455, y: tableTop + 28 }, end: { x: 455, y: tableTop - tableHeight }, thickness: 1, color: light });
+    draw('Description', margin + 190, tableTop + 9, 10, bold);
+    draw('Prix total HT', 474, tableTop + 9, 10, bold);
+    orderItems.forEach((item, index) => {
+      const y = tableTop - 20 - index * 28;
+      draw(`${item.reference} - ${item.line}`, margin + 10, y, 9);
+      drawRight(`${item.price.toFixed(2).replace('.', ',')} EUR`, y, 9, bold);
+    });
+
+    draw('IBAN : FR76 1870 7001 8631 1196 2828 269', margin, 170, 10, regular, muted);
+    draw('BIC : CCBPFRPPVER', margin, 154, 10, regular, muted);
+    page.drawRectangle({ x: 330, y: 150, width: 150, height: 30, color: light });
+    page.drawRectangle({ x: 480, y: 150, width: 79, height: 30, borderColor: light, borderWidth: 1 });
+    draw('Total HT', 380, 160, 10, bold);
+    drawRight(`${total.toFixed(2).replace('.', ',')} EUR`, 160, 10, regular);
+    draw('TVA non applicable, art. 293B du CGI', 205, 56, 10, regular, muted);
+    draw('Paiement par virement bancaire pour valider votre commande, IBAN ci-dessus,', 205, 40, 9, regular, muted);
+    draw('ou par SMS au 06 52 53 64 70.', 205, 27, 9, regular, muted);
+
+    const bytes = await pdf.save();
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `devis-d'impression-${date.replaceAll('/', '-')}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  if (orderQuotePrint) orderQuotePrint.addEventListener('click', () => window.print());
 
   if (orderForm) {
     orderForm.addEventListener('submit', async e => {
       e.preventDefault();
+      const orderItems = cart.map(item => ({
+        reference: photoRef(item.set, item.index),
+        line: item.line,
+        price: priceFromLine(item.line)
+      }));
+      const orderTotal = cartTotal();
+      const customer = {
+        name: document.getElementById('order-name').value,
+        email: orderEmail.value,
+        address: document.getElementById('order-address').value
+      };
       if (orderReplyTo) orderReplyTo.value = orderEmail.value;
 
       // Ensure the hidden field always contains the full order with photo IDs
@@ -890,7 +1008,9 @@
         const data = await response.json();
 
         if (response.ok && data.success) {
-          if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Un email de confirmation vous a été adressé.';
+          if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Votre devis a été téléchargé. Vous recevrez un email de confirmation si l’autorépondeur Web3Forms est activé.';
+          renderOrderQuote(customer, orderItems, orderTotal);
+          await downloadOrderQuote(customer, orderItems, orderTotal);
           orderForm.reset();
           cart.length = 0;
           saveCart();

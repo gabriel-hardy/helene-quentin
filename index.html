@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;1,400&family=Jost:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="./styles.css?v=2">
+  <script src="https://cdn.jsdelivr.net/npm/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
 </head>
 <body>
 
@@ -42,6 +43,10 @@
       <button class="nav-action" type="button" title="Favoris" id="nav-fav">
         <span id="nav-fav-icon">♡</span>
         <span class="fav-count" id="fav-count">0</span>
+      </button>
+      <button class="nav-action" type="button" title="Panier" id="nav-cart" aria-label="Panier">
+        <span aria-hidden="true">🛒</span>
+        <span class="cart-count" id="cart-count">0</span>
       </button>
     </div>
   </nav>
@@ -120,6 +125,14 @@
         </p>
       </div>
 
+      <div class="shop-preview" id="favorites-preview">
+        <h3>Coup de cœur</h3>
+        <p class="shop-sub">Photos que vous avez likées. Cliquez pour ouvrir dans la galerie.</p>
+        <div class="preview-grid" id="favorites-preview-grid">
+          <p class="preview-empty">Aucun coup de cœur pour le moment.</p>
+        </div>
+      </div>
+
       <div class="shop-section">
         <h3>Tirages papiers</h3>
         <p class="shop-sub">Papier satiné ou brillant</p>
@@ -141,17 +154,9 @@
         </div>
       </div>
 
-      <div class="shop-preview" id="favorites-preview">
-        <h3>Coup de cœur</h3>
-        <p class="shop-sub">Photos que vous avez likées. Cliquez pour ouvrir dans la galerie.</p>
-        <div class="preview-grid" id="favorites-preview-grid">
-          <p class="preview-empty">Aucun coup de cœur pour le moment.</p>
-        </div>
-      </div>
-
       <div class="cart" id="cart-preview">
         <h3>Panier</h3>
-        <p class="shop-sub">Photos et formats sélectionnés</p>
+        <p class="shop-sub">Photos et formats sélectionnés<br/>Ouvrez une image et cliquez sur l'icône du panier pour sélectionner une finition </p>
         <div class="cart-items" id="cart-preview-grid">
           <p class="cart-empty">Votre panier est vide.</p>
         </div>
@@ -162,7 +167,7 @@
 
       <div class="shop-form" id="shop-form">
         <h3>Passer commande</h3>
-        <p class="shop-sub">Indiquez vos coordonnées pour finaliser la commande.</p>
+        <p class="shop-sub">Indiquez vos coordonnées pour finaliser la commande.<br/>Frais de livraison en France métropolitaine inclus </p>
         <form id="order-form" action="https://api.web3forms.com/submit" method="POST">
           <input type="hidden" name="access_key" value="184868dc-38d5-4531-ae6e-b0adbe588c94">
           <input type="hidden" name="subject" value="Nouvelle commande - Galerie Hélène & Quentin">
@@ -185,11 +190,40 @@
           <button type="submit">Envoyer la commande</button>
           <p class="form-status" id="order-status" role="status" aria-live="polite"></p>
         </form>
+        <section class="order-quote" id="order-quote" hidden aria-labelledby="order-quote-title">
+          <div class="order-quote-header">
+            <h3 id="order-quote-title">Devis récapitulatif</h3>
+            <button class="order-quote-print" id="order-quote-print" type="button">Imprimer le devis</button>
+          </div>
+          <div class="order-quote-parties">
+            <div class="order-quote-party">
+              <strong>Gabriel Hardy</strong>
+              <span>2 rue Philippe de Beaumanoir</span>
+              <span>78540 Vernouillet</span>
+              <span>Siret : 879 734 366 00013</span>
+            </div>
+            <div class="order-quote-party order-quote-client">
+              <strong id="order-quote-customer-name"></strong>
+              <span id="order-quote-customer-email"></span>
+              <span id="order-quote-customer-address"></span>
+            </div>
+          </div>
+          <div class="order-quote-meta">
+            <span>Jour de facturation</span>
+            <strong id="order-quote-date"></strong>
+          </div>
+          <div class="order-quote-items" id="order-quote-items"></div>
+          <div class="order-quote-footer">
+            <div class="order-quote-bank">
+              <span>IBAN : FR76 1870 7001 8631 1196 2828 269</span>
+              <span>BIC : CCBPFRPPVER</span>
+            </div>
+            <div class="order-quote-total"><span>Total HT</span><strong id="order-quote-total">0 €</strong></div>
+          </div>
+          <p class="order-quote-note">TVA non applicable, art. 293B du CGI.<br>Paiement par virement bancaire pour valider votre commande, IBAN ci-dessus, ou par SMS au 06 52 53 64 70.</p>
+        </section>
       </div>
 
-      <div class="shop-note">
-        Livraison en France métropolitaine comprise · Commande par email.
-      </div>
     </section>
   </main>
 
@@ -263,6 +297,6 @@
     <span>Photographies · Gabriel Hardy</span>
   </footer>
 
-  <script src="./app.js?v=2"></script>
+  <script src="./app.js?v=3"></script>
 </body>
 </html>
