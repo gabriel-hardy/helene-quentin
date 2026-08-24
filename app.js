@@ -148,6 +148,9 @@
       item.dataset.index = i;
       item.dataset.set = set;
       item.dataset.src = photo.src;
+      if (photo.width && photo.height) {
+        item.style.aspectRatio = `${photo.width} / ${photo.height}`;
+      }
       item.setAttribute('aria-label', photo.alt || `Photo ${i + 1}`);
 
       const actions = document.createElement('div');
@@ -854,10 +857,10 @@
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !picker.hidden) closeFormatPicker(); });
 
   await Promise.all([
-    loadGallery('galerie', './photos.json'),
-    loadGallery('selection', './photos-selection.json'),
-    loadGallery('groupes', './photos-groupes.json'),
-    loadGallery('soiree', './photos-soiree.json')
+    loadGallery('galerie', './photos.json?v=2'),
+    loadGallery('selection', './photos-selection.json?v=2'),
+    loadGallery('groupes', './photos-groupes.json?v=2'),
+    loadGallery('soiree', './photos-soiree.json?v=2')
   ]);
   loadFavorites();
   loadCart();
