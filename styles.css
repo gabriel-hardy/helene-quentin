@@ -876,6 +876,24 @@ main {
   line-height: 1.35;
 }
 
+.cart-item-quantity {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
+.cart-item-quantity input {
+  width: 52px;
+  padding: 6px 4px;
+  border: 1px solid rgba(38, 33, 26, 0.15);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
+}
+
 .cart-item-price {
   font-family: var(--serif);
   font-size: 18px;
@@ -994,6 +1012,14 @@ main {
 .order-quote h3 {
   margin: 0;
   text-align: left;
+}
+
+.order-quote-id {
+  margin: -8px 0 20px;
+  color: var(--accent);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
 }
 
 .order-quote-print {
@@ -1250,6 +1276,26 @@ main {
 
 .format-options button.is-selected small {
   color: rgba(255, 255, 255, 0.85);
+}
+
+.quantity-picker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 20px;
+  color: var(--ink-soft);
+  font-size: 13px;
+}
+
+.quantity-picker input {
+  width: 64px;
+  padding: 9px 6px;
+  border: 1px solid rgba(38, 33, 26, 0.15);
+  background: #fdfcf8;
+  color: var(--ink);
+  font: inherit;
+  text-align: center;
 }
 
 .frame-options,

@@ -546,6 +546,11 @@
 
   function cartKey(item) { return `${item.set}:${item.index}:${item.line}`; }
 
+  function itemQuantity(item) {
+    const quantity = Number.parseInt(item.quantity, 10);
+    return Number.isInteger(quantity) && quantity > 0 ? quantity : 1;
+  }
+
   function priceFromLine(line) {
     const map = {
       '10×15 cm papier': 5,
@@ -574,6 +579,7 @@
       const raw = localStorage.getItem(CART_KEY);
       cart = raw ? JSON.parse(raw) : [];
       if (!Array.isArray(cart)) cart = [];
+      cart.forEach(item => { item.quantity = itemQuantity(item); });
       pruneCart();
     } catch {
       cart = [];
@@ -585,10 +591,15 @@
     localStorage.setItem(CART_KEY, JSON.stringify(cart));
   }
 
-  function addToCart(set, index, line) {
-    const item = { set, index, line };
+  function addToCart(set, index, line, quantity = 1) {
+    const item = { set, index, line, quantity: itemQuantity({ quantity }) };
     const key = cartKey(item);
-    if (!cart.some(it => cartKey(it) === key)) {
+    const existing = cart.find(it => cartKey(it) === key);
+    if (existing) {
+      existing.quantity = itemQuantity(existing) + item.quantity;
+      saveCart();
+      syncCartUI();
+    } else {
       cart.push(item);
       saveCart();
       syncCartUI();
@@ -603,7 +614,7 @@
   }
 
   function updateCartCount() {
-    const count = cart.length;
+    const count = cart.reduce((total, item) => total + itemQuantity(item), 0);
     const badge = document.getElementById('cart-count');
     if (badge) badge.textContent = String(count);
   }
@@ -615,15 +626,16 @@
       const id = photo ? fileNameFromSrc(photo.src).replace(/\.[^.]+$/, '') : '';
       const ref = photoRef(item.set, item.index);
       const price = priceFromLine(item.line);
+      const quantity = itemQuantity(item);
       if (includeIds) {
-        return `${ref} — ${id} — ${item.line} — ${price} €`;
+        return `${ref} — ${id} — ${item.line} — Quantité : ${quantity} — ${price * quantity} €`;
       }
-      return `${ref} — ${item.line} — ${price} €`;
+      return `${ref} — ${item.line} — Quantité : ${quantity} — ${price * quantity} €`;
     }).join('\n');
   }
 
   function cartTotal() {
-    return cart.reduce((sum, item) => sum + priceFromLine(item.line), 0);
+    return cart.reduce((sum, item) => sum + priceFromLine(item.line) * itemQuantity(item), 0);
   }
 
   function updateOrderText() {
@@ -663,12 +675,12 @@
     cart.forEach(item => {
       const photo = galleries[item.set].photos[item.index];
       if (!photo) return;
-      frag.appendChild(createCartItem(item.set, item.index, photo, item.line));
+      frag.appendChild(createCartItem(item.set, item.index, photo, item.line, itemQuantity(item)));
     });
     grid.appendChild(frag);
   }
 
-  function createCartItem(set, index, photo, line) {
+  function createCartItem(set, index, photo, line, quantity) {
     const price = priceFromLine(line);
     const item = document.createElement('div');
     item.className = 'cart-item';
@@ -696,11 +708,33 @@
     format.textContent = line;
     meta.appendChild(format);
 
+    const quantityField = document.createElement('label');
+    quantityField.className = 'cart-item-quantity';
+    quantityField.textContent = 'Qté';
+    quantityField.addEventListener('click', e => e.stopPropagation());
+    const quantityInput = document.createElement('input');
+    quantityInput.type = 'number';
+    quantityInput.min = '1';
+    quantityInput.step = '1';
+    quantityInput.value = quantity;
+    quantityInput.inputMode = 'numeric';
+    quantityInput.setAttribute('aria-label', `Quantité de ${photoRef(set, index)}`);
+    quantityInput.addEventListener('click', e => e.stopPropagation());
+    quantityInput.addEventListener('change', () => {
+      const item = cart.find(it => it.set === set && it.index === index && it.line === line);
+      if (!item) return;
+      item.quantity = itemQuantity({ quantity: quantityInput.value });
+      saveCart();
+      syncCartUI();
+    });
+    quantityField.appendChild(quantityInput);
+    meta.appendChild(quantityField);
+
     body.appendChild(meta);
 
     const priceEl = document.createElement('strong');
     priceEl.className = 'cart-item-price';
-    priceEl.textContent = `${price} €`;
+    priceEl.textContent = `${price * quantity} €`;
     body.appendChild(priceEl);
 
     item.appendChild(body);
@@ -744,6 +778,7 @@
   const frameMargin = document.getElementById('frame-margin');
   const frameFinish = document.getElementById('frame-finish');
   const paperFinish = document.getElementById('paper-finish');
+  const formatQuantity = document.getElementById('format-quantity');
   const pickerConfirm = document.getElementById('format-picker-confirm');
   let pickerTarget = null;
   let pickerFormat = null;
@@ -771,6 +806,7 @@
   function openFormatPicker(set, index, anchor) {
     pickerTarget = { set, index };
     pickerFormat = null;
+    if (formatQuantity) formatQuantity.value = '1';
     updatePickerSelection();
     picker.hidden = false;
     positionPicker(anchor);
@@ -805,7 +841,7 @@
 
   pickerConfirm.addEventListener('click', () => {
     if (!pickerTarget || !pickerFormat) return;
-    addToCart(pickerTarget.set, pickerTarget.index, formatLine(pickerFormat));
+    addToCart(pickerTarget.set, pickerTarget.index, formatLine(pickerFormat), formatQuantity?.value);
     closeFormatPicker();
   });
 
@@ -871,6 +907,8 @@
   const orderReplyTo = document.getElementById('order-replyto');
   const orderStatus = document.getElementById('order-status');
   const orderQuote = document.getElementById('order-quote');
+  const orderIdField = document.getElementById('order-id');
+  const orderQuoteId = document.getElementById('order-quote-id');
   const orderQuoteCustomerName = document.getElementById('order-quote-customer-name');
   const orderQuoteCustomerEmail = document.getElementById('order-quote-customer-email');
   const orderQuoteCustomerAddress = document.getElementById('order-quote-customer-address');
@@ -879,8 +917,18 @@
   const orderQuoteTotal = document.getElementById('order-quote-total');
   const orderQuotePrint = document.getElementById('order-quote-print');
 
-  function renderOrderQuote(customer, orderItems, total) {
-    if (!orderQuote || !orderQuoteCustomerName || !orderQuoteCustomerEmail || !orderQuoteCustomerAddress || !orderQuoteDate || !orderQuoteItems || !orderQuoteTotal) return;
+  function createOrderId() {
+    const date = new Date();
+    const datePart = `${date.getDate().toString().padStart(2, '0')}${(date.getMonth() + 1).toString().padStart(2, '0')}${date.getFullYear()}`;
+    const randomPart = typeof crypto.randomUUID === 'function'
+      ? crypto.randomUUID().replaceAll('-', '').slice(0, 6).toUpperCase()
+      : Array.from(crypto.getRandomValues(new Uint8Array(3)), byte => byte.toString(16).padStart(2, '0')).join('').toUpperCase();
+    return `CMD-${datePart}-${randomPart}`;
+  }
+
+  function renderOrderQuote(orderId, customer, orderItems, total) {
+    if (!orderQuote || !orderQuoteId || !orderQuoteCustomerName || !orderQuoteCustomerEmail || !orderQuoteCustomerAddress || !orderQuoteDate || !orderQuoteItems || !orderQuoteTotal) return;
+    orderQuoteId.textContent = orderId;
     orderQuoteCustomerName.textContent = customer.name;
     orderQuoteCustomerEmail.textContent = customer.email;
     orderQuoteCustomerAddress.textContent = customer.address;
@@ -889,14 +937,14 @@
     orderItems.forEach(item => {
       const row = document.createElement('div');
       row.className = 'order-quote-item';
-      row.innerHTML = `<span>${item.reference} — ${item.line}</span><strong>${item.price} €</strong>`;
+      row.innerHTML = `<span>${item.reference} — ${item.line} — Quantité : ${item.quantity}</span><strong>${item.price} €</strong>`;
       orderQuoteItems.appendChild(row);
     });
     orderQuoteTotal.textContent = `${total} €`;
     orderQuote.hidden = false;
   }
 
-  async function downloadOrderQuote(customer, orderItems, total) {
+  async function downloadOrderQuote(orderId, customer, orderItems, total) {
     if (!window.PDFLib) {
       if (orderStatus) orderStatus.textContent += ' Le téléchargement du devis est momentanément indisponible.';
       return;
@@ -922,6 +970,7 @@
     const date = new Intl.DateTimeFormat('fr-FR').format(new Date());
 
     draw('DEVIS RECAPITULATIF', margin, 790, 18, bold);
+    draw(orderId, right - bold.widthOfTextAtSize(orderId, 10), 793, 10, bold, muted);
     draw('Gabriel Hardy', margin, 738, 12, bold);
     draw('2 rue Philippe de Beaumanoir', margin, 721);
     draw('78540 Vernouillet', margin, 706);
@@ -944,7 +993,7 @@
     draw('Prix total HT', 474, tableTop + 9, 10, bold);
     orderItems.forEach((item, index) => {
       const y = tableTop - 20 - index * 28;
-      draw(`${item.reference} - ${item.line}`, margin + 10, y, 9);
+      draw(`${item.reference} - ${item.line} - Quantité : ${item.quantity}`, margin + 10, y, 9);
       drawRight(`${item.price.toFixed(2).replace('.', ',')} EUR`, y, 9, bold);
     });
 
@@ -962,7 +1011,7 @@
     const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `devis-d'impression-${date.replaceAll('/', '-')}.pdf`;
+    link.download = `devis-d'impression-${orderId}-${date.replaceAll('/', '-')}.pdf`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
@@ -974,10 +1023,16 @@
   if (orderForm) {
     orderForm.addEventListener('submit', async e => {
       e.preventDefault();
+      if (cart.length === 0) {
+        if (orderStatus) orderStatus.textContent = 'Ajoutez au moins un article au panier avant de valider la commande.';
+        return;
+      }
+      const orderId = createOrderId();
       const orderItems = cart.map(item => ({
         reference: photoRef(item.set, item.index),
         line: item.line,
-        price: priceFromLine(item.line)
+        quantity: itemQuantity(item),
+        price: priceFromLine(item.line) * itemQuantity(item)
       }));
       const orderTotal = cartTotal();
       const customer = {
@@ -986,6 +1041,9 @@
         address: document.getElementById('order-address').value
       };
       if (orderReplyTo) orderReplyTo.value = orderEmail.value;
+      if (orderIdField) orderIdField.value = orderId;
+      const subjectField = orderForm.querySelector('input[name="subject"]');
+      if (subjectField) subjectField.value = `Commande ${orderId} - Galerie Hélène & Quentin`;
 
       // Ensure the hidden field always contains the full order with photo IDs
       const taFull = document.getElementById('order-photos-full');
@@ -1008,9 +1066,14 @@
         const data = await response.json();
 
         if (response.ok && data.success) {
-          if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Votre devis a été téléchargé. Vous recevrez un email de confirmation si l’autorépondeur Web3Forms est activé.';
-          renderOrderQuote(customer, orderItems, orderTotal);
-          await downloadOrderQuote(customer, orderItems, orderTotal);
+          if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Génération de votre devis en cours.';
+          renderOrderQuote(orderId, customer, orderItems, orderTotal);
+          try {
+            await downloadOrderQuote(orderId, customer, orderItems, orderTotal);
+            if (orderStatus) orderStatus.textContent = 'Commande envoyée ! Votre devis a été téléchargé. Vous recevrez un email de confirmation si l’autorépondeur Web3Forms est activé.';
+          } catch {
+            if (orderStatus) orderStatus.textContent = 'Commande envoyée, mais le téléchargement du devis a échoué. Vous pouvez utiliser le bouton « Imprimer le devis ».';
+          }
           orderForm.reset();
           cart.length = 0;
           saveCart();
