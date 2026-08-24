@@ -25,7 +25,7 @@
     if (siteNav) {
       siteNav.classList.toggle('is-scrolled', window.scrollY > 50);
       siteNav.classList.toggle('is-solid', false);
-      siteNav.classList.toggle('is-boutique', name === 'boutique');
+      siteNav.classList.toggle('is-boutique', name === 'boutique' || name === 'contact');
     }
     if (location.hash !== `#${name}`) {
       history.replaceState(null, '', `#${name}`);
@@ -38,7 +38,7 @@
   tabs.forEach(t => t.addEventListener('click', () => activate(t.dataset.tab)));
 
   const initial = (location.hash || '').replace('#', '');
-  if (['galerie', 'groupes', 'soiree', 'boutique'].includes(initial)) {
+  if (['galerie', 'groupes', 'soiree', 'boutique', 'contact'].includes(initial)) {
     activate(initial);
   }
 

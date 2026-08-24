@@ -371,6 +371,41 @@ main {
   opacity: 0.8;
 }
 
+.contact-content {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 56px 24px 120px;
+  text-align: center;
+}
+
+.contact-lede {
+  max-width: 560px;
+  margin: 0 auto 36px;
+  font-family: var(--serif);
+  font-size: 24px;
+  line-height: 1.5;
+  color: var(--ink-soft);
+}
+
+.contact-details {
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  flex-wrap: wrap;
+}
+
+.contact-details a {
+  color: var(--accent);
+  font-size: 14px;
+  letter-spacing: 0.12em;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.contact-details a:hover {
+  color: var(--ink);
+}
+
 /* Espace blanc sous le hero principal de la Galerie, équivalent au margin-bottom des panel-hero */
 #panel-galerie .gallery {
   margin-top: 52px;
