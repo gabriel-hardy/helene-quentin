@@ -189,7 +189,7 @@ html {
 }
 
 .site-nav.is-boutique {
-  background: transparent;
+  background: var(--bg);
   color: var(--ink);
   border-bottom-color: rgba(38, 33, 26, 0.08);
 }

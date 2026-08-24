@@ -162,33 +162,7 @@
         toggleFavorite(set, i);
       });
 
-      const cart = document.createElement('button');
-      cart.className = 'cart-btn';
-      cart.type = 'button';
-      cart.dataset.index = i;
-      cart.dataset.set = set;
-      cart.setAttribute('aria-label', 'Ajouter au panier');
-      cart.innerHTML = '🛒';
-      cart.addEventListener('click', e => {
-        e.stopPropagation();
-        openFormatPicker(set, i, cart);
-      });
-
-      const download = document.createElement('button');
-      download.className = 'download-btn';
-      download.type = 'button';
-      download.dataset.index = i;
-      download.dataset.set = set;
-      download.setAttribute('aria-label', 'Télécharger la photo');
-      download.innerHTML = '⤓';
-      download.addEventListener('click', e => {
-        e.stopPropagation();
-        downloadPhoto(photo.src, photo.alt || fileNameFromSrc(photo.src));
-      });
-
       actions.appendChild(fav);
-      actions.appendChild(cart);
-      actions.appendChild(download);
       item.appendChild(actions);
       item.addEventListener('click', () => openLightbox(set, i));
       item.addEventListener('keydown', e => {
@@ -228,20 +202,121 @@
     return src.split('/').pop().split('?')[0];
   }
 
-  function downloadPhoto(src, alt) {
+  function photoKey(src) {
+    return src.split('?')[0];
+  }
+
+  function favoritePhotos() {
+    return Array.from(favorites)
+      .map(fileName => {
+        const match = findFirstPhotoByFileName(fileName);
+        return match ? galleries[match.set].photos[match.index] : null;
+      })
+      .filter(Boolean);
+  }
+
+  function crc32(bytes) {
+    let crc = 0xffffffff;
+    for (const byte of bytes) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) {
+        crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+      }
+    }
+    return (crc ^ 0xffffffff) >>> 0;
+  }
+
+  function appendBytes(parts, bytes) {
+    parts.push(bytes);
+  }
+
+  async function createFavoritesZip(photos) {
+    const encoder = new TextEncoder();
+    const localParts = [];
+    const centralParts = [];
+    let offset = 0;
+    const names = new Set();
+
+    for (const photo of photos) {
+      const response = await fetch(photo.src);
+      if (!response.ok) continue;
+      const data = new Uint8Array(await response.arrayBuffer());
+      const originalName = fileNameFromSrc(photo.src);
+      let name = originalName;
+      let suffix = 2;
+      while (names.has(name)) name = `${suffix++}-${originalName}`;
+      names.add(name);
+
+      const nameBytes = encoder.encode(name);
+      const crc = crc32(data);
+      const localHeader = new ArrayBuffer(30 + nameBytes.length);
+      const localView = new DataView(localHeader);
+      localView.setUint32(0, 0x04034b50, true);
+      localView.setUint16(4, 20, true);
+      localView.setUint16(6, 0x800, true);
+      localView.setUint16(8, 0, true);
+      localView.setUint16(10, 0, true);
+      localView.setUint16(12, 0, true);
+      localView.setUint32(14, crc, true);
+      localView.setUint32(18, data.length, true);
+      localView.setUint32(22, data.length, true);
+      localView.setUint16(26, nameBytes.length, true);
+      new Uint8Array(localHeader, 30).set(nameBytes);
+      appendBytes(localParts, new Uint8Array(localHeader));
+      appendBytes(localParts, data);
+
+      const centralHeader = new ArrayBuffer(46 + nameBytes.length);
+      const centralView = new DataView(centralHeader);
+      centralView.setUint32(0, 0x02014b50, true);
+      centralView.setUint16(4, 20, true);
+      centralView.setUint16(6, 20, true);
+      centralView.setUint16(8, 0x800, true);
+      centralView.setUint16(10, 0, true);
+      centralView.setUint16(12, 0, true);
+      centralView.setUint16(14, 0, true);
+      centralView.setUint32(16, crc, true);
+      centralView.setUint32(20, data.length, true);
+      centralView.setUint32(24, data.length, true);
+      centralView.setUint16(28, nameBytes.length, true);
+      centralView.setUint32(42, offset, true);
+      new Uint8Array(centralHeader, 46).set(nameBytes);
+      appendBytes(centralParts, new Uint8Array(centralHeader));
+      offset += 30 + nameBytes.length + data.length;
+    }
+
+    const centralDirectory = new Blob(centralParts);
+    const localFiles = new Blob(localParts);
+    const end = new ArrayBuffer(22);
+    const endView = new DataView(end);
+    endView.setUint32(0, 0x06054b50, true);
+    endView.setUint16(8, names.size, true);
+    endView.setUint16(10, names.size, true);
+    endView.setUint32(12, centralDirectory.size, true);
+    endView.setUint32(16, localFiles.size, true);
+    return new Blob([localFiles, centralDirectory, end], { type: 'application/zip' });
+  }
+
+  async function downloadFavorites() {
+    const photos = favoritePhotos();
+    if (photos.length === 0) {
+      alert('Aucun coup de cœur à télécharger.');
+      return;
+    }
+
+    const zip = await createFavoritesZip(photos);
     const link = document.createElement('a');
-    link.href = src;
-    link.download = fileNameFromSrc(src);
-    link.target = '_blank';
-    link.rel = 'noopener';
+    const url = URL.createObjectURL(zip);
+    link.href = url;
+    link.download = 'mes-favoris.zip';
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   function favKey(set, i) {
     const photo = galleries[set] && galleries[set].photos[i];
-    return photo ? fileNameFromSrc(photo.src) : `${set}:${i}`;
+    return photo ? photoKey(photo.src) : `${set}:${i}`;
   }
 
   function photoRef(set, i) {
@@ -255,16 +330,19 @@
   function pruneFavorites() {
     const valid = new Set();
     const allPhotos = Object.values(galleries).flatMap(g => g.photos);
-    const allFileNames = new Set(allPhotos.map(p => fileNameFromSrc(p.src)));
+    const allPhotoKeys = new Set(allPhotos.map(p => photoKey(p.src)));
     favorites.forEach(key => {
       // Legacy format: "set:index"
       if (key.includes(':')) {
         const [set, idx] = key.split(':');
         const i = parseInt(idx, 10);
         const photo = galleries[set] && galleries[set].photos[i];
-        if (photo) valid.add(fileNameFromSrc(photo.src));
-      } else if (allFileNames.has(key)) {
+        if (photo) valid.add(photoKey(photo.src));
+      } else if (allPhotoKeys.has(key)) {
         valid.add(key);
+      } else {
+        const photo = allPhotos.find(p => fileNameFromSrc(p.src) === key);
+        if (photo) valid.add(photoKey(photo.src));
       }
     });
     favorites = valid;
@@ -275,7 +353,13 @@
       const raw = localStorage.getItem(FAV_KEY);
       if (!raw) return;
       const data = JSON.parse(raw);
-      data.forEach(({ set, index }) => favorites.add(favKey(set, index)));
+      data.forEach(item => {
+        if (typeof item.src === 'string') {
+          favorites.add(photoKey(item.src));
+        } else if (item.set && Number.isInteger(item.index)) {
+          favorites.add(favKey(item.set, item.index));
+        }
+      });
       pruneFavorites();
       saveFavorites();
     } catch {}
@@ -329,7 +413,9 @@
 
   function findFirstPhotoByFileName(fileName) {
     for (const set of Object.keys(galleries)) {
-      const idx = galleries[set].photos.findIndex(p => fileNameFromSrc(p.src) === fileName);
+      const idx = galleries[set].photos.findIndex(p =>
+        photoKey(p.src) === fileName || fileNameFromSrc(p.src) === fileName
+      );
       if (idx !== -1) return { set, index: idx };
     }
     return null;
@@ -365,8 +451,13 @@
   }
 
   document.getElementById('nav-fav').addEventListener('click', () => {
-    activate('boutique');
-    document.getElementById('favorites-preview')?.scrollIntoView({ behavior: 'smooth' });
+    activate('boutique', { scroll: false });
+    const favoritesPreview = document.getElementById('favorites-preview');
+    if (favoritesPreview) {
+      const navHeight = siteNav ? siteNav.offsetHeight : 0;
+      const top = favoritesPreview.getBoundingClientRect().top + window.scrollY - navHeight - 12;
+      window.scrollTo({ top, behavior: 'smooth' });
+    }
   });
 
   function renderFavoritesPreview() {
@@ -409,18 +500,17 @@
     info.textContent = isCart ? line : photoRef(set, index);
     item.appendChild(info);
 
-    if (isCart) {
-      const remove = document.createElement('button');
-      remove.className = 'preview-remove';
-      remove.type = 'button';
-      remove.setAttribute('aria-label', 'Retirer du panier');
-      remove.innerHTML = '×';
-      remove.addEventListener('click', e => {
-        e.stopPropagation();
-        removeFromCart(set, index, line);
-      });
-      item.appendChild(remove);
-    }
+    const remove = document.createElement('button');
+    remove.className = 'preview-remove';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', isCart ? 'Retirer du panier' : 'Retirer des coups de cœur');
+    remove.innerHTML = '×';
+    remove.addEventListener('click', e => {
+      e.stopPropagation();
+      if (isCart) removeFromCart(set, index, line);
+      else toggleFavorite(set, index);
+    });
+    item.appendChild(remove);
 
     item.addEventListener('click', () => openLightbox(set, index));
     item.addEventListener('keydown', e => {
@@ -641,11 +731,6 @@
     btn.classList.toggle('is-active', inCart);
   }
 
-  document.getElementById('nav-cart').addEventListener('click', () => {
-    activate('boutique');
-    document.getElementById('cart-preview')?.scrollIntoView({ behavior: 'smooth' });
-  });
-
   // ── Format picker ─────────────────────────────────────
   const picker = document.getElementById('format-picker');
   const frameColor = document.getElementById('frame-color');
@@ -736,9 +821,9 @@
   function openLightbox(set, i) {
     currentSet = set;
     current = i;
-    updateLightbox();
     lb.hidden = false;
     lb.setAttribute('aria-hidden', 'false');
+    updateLightbox();
     document.body.style.overflow = 'hidden';
   }
 
@@ -824,12 +909,10 @@
     });
   }
 
-  // ── Download all (placeholder) ────────────────────────
+  // ── Download favorites ───────────────────────────────
   const downloadBtn = document.getElementById('nav-download');
   if (downloadBtn) {
-    downloadBtn.addEventListener('click', () => {
-      alert('Téléchargement groupé à configurer.');
-    });
+    downloadBtn.addEventListener('click', downloadFavorites);
   }
 
 })();
